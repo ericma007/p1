@@ -4,14 +4,19 @@
 # external requirements
 numpy
 scipy
-statsmodels
 pandas
 matplotlib
+plotly
 seaborn
 bokeh
-plotly
+statmodels
+imbalanced-learn
 sklearn
+xgboost
+lightgbm
+catboost
 tensorflow
 keras
-fancyimpute
-pylab
+GitPython
+cookiecutter
+jupyterlab
