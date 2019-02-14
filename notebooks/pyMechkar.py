@@ -17,10 +17,11 @@ data: the dataset to be used
 miss: include missing statistics: [0=none, 1=only for categorical variables, 2=for all variables]
 excel: export the table to excel [0=no, 1=yes]
 excel_file: the name of the excel file we want to save the table (optional)
-2.0 
+
 """
 import time
 import sys
+import os
 import numpy as np
 from scipy import stats
 from statsmodels.stats import multitest
@@ -33,7 +34,6 @@ import pandas as pd
 #matplotlib.use('Agg')
 import matplotlib.pyplot as plt
 ### preventing matplotlib to open a graph window when saving...
-#matplotlib.pyplot.ioff()
 plt.ioff()
 import seaborn as sns
 ## dissable the "SettingWithCopyWarning" warning
@@ -101,6 +101,13 @@ class pyMechkar: #(object):
         self.dir = dir
         self.explorer = self._getDataExplore(data, y, miss, catmiss, categorize, maxcat, decimals, dir)
         return(self.explorer)
+
+    def getOutliers(self, data, var=None, type='both'):
+        self.data = data
+        self.var = var
+        self.type = type
+        self.outliers = self._Outliers(data, var, type)
+        return(self.outliers)
 
     def _g1(self,var):
         res = {'mean':np.nanmean(var), 'sd':np.nanstd(var)}
@@ -419,13 +426,26 @@ class pyMechkar: #(object):
     def _getDataExplore(self, data, y, categorize, maxcat, miss, catmiss, decimals, dir):
     ################## Prepare for the report ###################
         ### initialize the report file
-        myhtml = open('report.html','w+')
+        try:
+            # Create target Directory
+            os.mkdir(dir)
+        except FileExistsError:
+            print("Directory " , dir ,  " already exists")
+        ### create the images Directory
+        try:
+            # Create target Directory
+            os.mkdir('%s/img' % dir)
+        except FileExistsError:
+            print("Directory " , dir ,  " already exists")
+
+        report = "%s/%s.html" % (dir,dir)
+        myhtml = open(report,'w+')
         ### create the header
         html = """
         <!DOCTYPE html>
         <html>
         <head>
-        <title>Data Visualization</title>
+        <title>Exploratory Data Analysis (EDA)</title>
         <meta http-equiv='Content-Type' content='text/html; charset=UTF-8' />
         <link rel='stylesheet' href='http://code.jquery.com/mobile/1.4.5/jquery.mobile-1.4.5.min.css'>
         <script src='http://code.jquery.com/jquery-1.10.2.min.js'></script>
@@ -439,8 +459,14 @@ class pyMechkar: #(object):
              $('#popup_img').attr('src',$(this).attr('src'));
              $('#myContainer').hide();
              var pos = $(document).scrollTop();
-             $('#myContainer').css({'top':pos+20,'left':250, 'position':'absolute', 'border':'1px solid black', 'padding':'0px'});
+             $('#myContainer-popup').css({'clip':'auto', 'top':pos+20, 'left':250, 'width':'450px', 'height':'338px'});
+             //$('#myContainer').css({'top':pos+20,'left':250, 'width':'450px', 'height':'338px' ,'position':'absolute', 'border':'1px solid black', 'padding':'0px'});
+             $('#myContainer').css({'width':'450px', 'height':'338px' ,'position':'absolute', 'border':'1px solid black', 'padding':'0px'});
              $('#myContainer').show();
+             $('#myContainer').css({'clip':'rect(1px, 450px, 338px, 0px)'});
+             $('#popup_img').css('visibility', 'visible');
+             //$('#myContainer-popup').css({'top':pos+20,'left':250, 'width':'450px', 'height':'338px' ,'position':'absolute', 'border':'1px solid black', 'padding':'0px'});
+             //alert("you clicked on the image:" +  $(this).attr('src'));
             });
            $('#myContainer').click(function(e) {
              $('#myContainer').hide();
@@ -449,24 +475,25 @@ class pyMechkar: #(object):
              e.preventDefault();
            });
            $('#onetoone').on('click',function() {
-           console.log('onetone button - 1');
-           $('#onetoone').hide();
-           $('#aslist').show();
-           // To show only individual rows:
-           $('.Row').hide();
-           $('.onetoone').show();
-           // then we iterate
-           var i = $('.Row').length;
-           // Then we iterate
-           var nxt = $('#idx').val();
-           if (nxt < i & nxt >0) {
+             console.log('onetone button - 1');
+             $('#onetoone').hide();
+             $('#aslist').css('visibility','visible')
+             $('#aslist').show();
+             // To show only individual rows:
              $('.Row').hide();
-             $('.Row').eq(0).show();
-             $('.Row').eq(nxt).show();
-           } else {
-             $('#idx').val(1)
-           }
-           console.log('onetone button - 2');
+             $('.onetoone').show();
+             // then we iterate
+             var i = $('.Row').length;
+             // Then we iterate
+             var nxt = $('#idx').val();
+             if (nxt < i & nxt >0) {
+               $('.Row').hide();
+               $('.Row').eq(0).show();
+               $('.Row').eq(nxt).show();
+             } else {
+               $('#idx').val(1)
+             }
+             console.log('onetone button - 2');
           });
           $('#aslist').on('click',function() {
             console.log('aslist button - 1');
@@ -477,7 +504,7 @@ class pyMechkar: #(object):
             console.log('aslist button - 2');
           });
           $('#less').on('click',function(){
-            console.log('less button - 1');
+            //console.log('less button - 1');
             var i = $('.Row').length;
             var nxt = parseInt($('#idx').val(),10) - 1;
             if (nxt < i & nxt >0) {
@@ -488,10 +515,10 @@ class pyMechkar: #(object):
             } else {
               $('#idx').val(1)
             }
-            console.log('less button - 2');
+            //console.log('less button - 2');
           });
           $('#more').on('click',function(){
-            console.log('more button - 1');
+            //console.log('more button - 1');
             var i = $('.Row').length;
             var nxt = parseInt($('#idx').val(),10) + 1;
             if (nxt < i & nxt >0) {
@@ -502,10 +529,10 @@ class pyMechkar: #(object):
             } else {
               $('#idx').val(i)
             }
-            console.log('more button - 2');
+            //console.log('more button - 2');
           });
           $('#idx').on('change', function(){
-            console.log('idx changed - 1');
+            //console.log('idx changed - 1');
             var i = $('.Row').length;
             var nxt = $('#idx').val();
             if (nxt < i & nxt >0) {
@@ -544,19 +571,28 @@ class pyMechkar: #(object):
           padding-left: 5px;
           padding-right: 5px;
           vertical-align: top;
+          font-family: "Times New Roman", Times, serif;
         }
-        img {
+        .origimg {
           width: 200px;
           height:120px;
+        }
+        .ui-btn {
+          width: 10%;
+        }
+        .ui-input-text {
+          width: 90%;
         }
         </style>
         </head>
         <body>
         <div id='pageone' data-role='main' class='ui-content'>
-            <p><p><h1> Data Visualization & Exploration </h1>
-            <form>
+            <p><p><h1> Exploratory Data Analysis (EDA) </h1>
+            <form id="onetoone">
                 <input type='button' id='onetoone' value='Show as Cards'>
-                <input type='button' id='aslist' class='onetoone' value='Show as List'>
+            </form>
+            <form id="aslist" style='visibility:hidden;'>
+                <input type='button' id='aslist' value='Show as List'>
             </form>
             <p>
         """
@@ -643,39 +679,43 @@ class pyMechkar: #(object):
                     q3 = '{:8,.2f}'.format(round(t_n['irq_75'],decimals))
                     mn = data[v].min()
                     mx = data[v].max()
+                    skw = '{:8,.2f}'.format(round(stats.skew(data[v]),decimals))
+                    kurt = '{:8,.2f}'.format(round(stats.kurtosis(data[v]),decimals))
                     ############### PART II - Graph  ########################
                     grp = sns.distplot(data[v])
                     fig = grp.get_figure()
-                    fig.savefig("%s_1.png" % v)
+                    fig.savefig("%s/img/%s_1.png" % (dir,v))
                     plt.figure()
                     ########## graph 2
-                    grp = sns.scatterplot(data.index,data[v])
+                    ## outliers...
+                    out = self._Outliers(data,var=v)
+                    grp = sns.scatterplot(data.index,data[v],hue=out[0])
                     fig = grp.get_figure()
-                    fig.savefig("%s_2.png" % v)
+                    fig.savefig("%s/img/%s_2.png" % (dir,v))
                     plt.figure()
                     ## report number and percent of missing
                     html = """<div class='Cell'> <u>Data type</u>: Continuous <p> <u>Data length</u>: %s/%s (%s%%) <br>
                     <u>Missing</u>: %s (%s%%)<p> <u>Mean</u>: %s \t <u>StdDev</u>: %s <br><u>Median</u>: %s \t
-                    <u>IQR</u>: %s-%s<br><u>Min</u>: %s \t <u>Max</u>: %s </div>
-                    <div class='Cell'><img src="%s_1.png"></img></div>
-                    <div class='Cell'><img src="%s_2.png"></img></div>
-                    """ % (n, N, pct, nmiss, npct, ma, s, me, q1, q3, mn, mx, v, v)
+                    <u>IQR</u>: %s-%s<br><u>Min</u>: %s \t <u>Max</u>: %s \t <p><u> Kurtosis</u>: %s \t <br><u> Skweness</u>: %s </div>
+                    <div class='Cell'><img class="origimg" src="img/%s_1.png"></img></div>
+                    <div class='Cell'><img class="origimg" class="origimg" src="img/%s_2.png"></img> <br> Number of outliers: %s </div>
+                    """ % (n, N, pct, nmiss, npct, ma, s, me, q1, q3, mn, mx, skw, kurt, v, v, sum(out[0]))
                     myhtml.write(html)
                     if(ydef==1 and v!=y and v!=y):
                         ## boxplot
                         grp = sns.boxplot(data[v],data[y])
                         fig = grp.get_figure()
-                        fig.savefig("%s_3.png" % v)
+                        fig.savefig("%s/img/%s_3.png" % (dir,v))
                         plt.figure()
-                        html="""<div class='Cell'><img src="%s_3.png"></img></div>""" % v
+                        html="""<div class='Cell'><img class="origimg" src="img/%s_3.png"></img></div>""" % v
                         myhtml.write(html)
                     elif(ydef==2 and v!=y):
                         ## scatterplot
                         grp = sns.scatterplot(data[v],data[y])
                         fig = grp.get_figure()
-                        fig.savefig("%s_3.png" % v)
+                        fig.savefig("%s/img/%s_3.png" % (dir,v))
                         plt.figure()
-                        html="""<div class='Cell'><img src="%s_3.png"></img></div>""" % v
+                        html="""<div class='Cell'><img class="origimg" src="img/%s_3.png"></img></div>""" % (dir,v)
                         myhtml.write(html)
                     elif(ydef>0 and v==y):
                         html="""<div class='Cell'></div>"""
@@ -705,8 +745,9 @@ class pyMechkar: #(object):
                     for f in range(0,len(nm)):
                         del1 = 0
                         tp = t_n[f] / ttotal * 100
-                        pct.append("%s (%s%%)" % ('{:8,.2f}'.format(round(t_n[f],decimals)), '{:8,.2f}'.format(round(tp,decimals))))
-                        v1 = pct
+                        pct.append("%s: %s (%s%%)" % (nm[f],'{:8,.2f}'.format(round(t_n[f],decimals)), '{:8,.2f}'.format(round(tp,decimals))))
+                        #v1 = pct
+                        v1 = '<br>'.join(map(str, pct))
                     v3 = ""
                     if (miss >= 2 and catmiss==False ):
                         if (data[v].isnull().sum()>0):
@@ -719,35 +760,35 @@ class pyMechkar: #(object):
                     ########## graph 1
                     grp = sns.countplot(data[v])
                     fig = grp.get_figure()
-                    fig.savefig("%s_1.png" % v)
+                    fig.savefig("%s/img/%s_1.png" % (dir,v))
                     plt.figure()
                     ########## graph 2
                     grp = sns.scatterplot(data.index,data[v])
                     fig = grp.get_figure()
-                    fig.savefig("%s_2.png" % v)
+                    fig.savefig("%s/img/%s_2.png" % (dir,v))
                     plt.figure()
                     ##########
                     html = """<div class='Cell'> <u>Data type</u>: Category <p> <u>Data length</u>: %s/%s <br>
-                    <u>Missing</u>: %s (%s%%)<p> <u>Categories</u>: %s <br> %s </div>
-                    <div class='Cell'><img src="%s_1.png"></img></div>
-                    <div class='Cell'><img src="%s_2.png"></img></div>
-                    """ % (n, N, nmiss, npct,v1, v3,v,v)
+                    <u>Missing</u>: %s (%s%%)<p> <u>Categories</u>:<br> %s <br> %s </div>
+                    <div class='Cell'><img class="origimg" src="img/%s_1.png"></img></div>
+                    <div class='Cell'><img class="origimg" src="img/%s_2.png"></img></div>
+                    """ % (n, N, nmiss, npct,v1, v3, v, v)
                     myhtml.write(html)
                     if(ydef==1 and v!=y):
                         ## countplot
                         grp = sns.countplot(x=v, hue=y, data=data)
                         fig = grp.get_figure()
-                        fig.savefig("%s_3.png" % v)
+                        fig.savefig("%s/img/%s_3.png" % (dir,v))
                         plt.figure()
-                        html="""<div class='Cell'><img src="%s_3.png"></img></div>""" % v
+                        html="""<div class='Cell'><img class="origimg" src="img/%s_3.png"></img></div>""" % v
                         myhtml.write(html)
                     elif(ydef==2 and v!=y):
                         ## boxplot
                         grp = sns.boxplot(x=v,y=y,data=data)
                         fig = grp.get_figure()
-                        fig.savefig("%s_3.png" % v)
+                        fig.savefig("%s/img/%s_3.png" % (dir,v))
                         plt.figure()
-                        html="""<div class='Cell'><img src="%s_3.png"></img></div>""" % v
+                        html="""<div class='Cell'><img class="origimg" src="img/%s_3.png"></img></div>""" % v
                         myhtml.write(html)
                     elif(ydef>0 and v==y):
                         html="""<div class='Cell'></div>"""
@@ -761,18 +802,21 @@ class pyMechkar: #(object):
         ##### end table
         html = """
                 <div data-role='popup' id='myContainer' style='display: none;'>
-                <img id='popup_img' src='' />
+                    <img id='popup_img' src='' />
                 </div>
+
                 </div>
                 </div>
                 </div>
                 <p>
                 <div class='onetoone'>
-                <form id='myform2'>
-                <span> <input type='button' id='less' value=' << '> </span>
-                <span> <input id='idx' name='idx' value='1'></input></span>
-                <span> <input type='button' id='more' value=' >> '> </span>
-                </form>
+                    <form id='myform2' style='display:block;'>
+                      <div id='navigator' style="display: block; width='40%';">
+                          <div id='less' style="float:left;"><input class='ui-btn' type='button' id='less1' value=' << ' style='width: 10%;'></div>
+                          <div id='center' style="float:left;"><input id='idx' name='idx' value='1' style='text-align:center;'></input></div>
+                          <div id='more' style="float:left;"><input class='ui-btn' type='button' id='more1' value=' >> ' style='width: 10%;'></div>
+                      </div>
+                    </form>
                 </div>
                 <p>
                 </body></html>
@@ -781,6 +825,64 @@ class pyMechkar: #(object):
         ###### CLOSE FILE
         myhtml.close()
         import webbrowser
-        url="./report.html"
+        url="./%s/report.html" % dir
         #webbrowser.open(url[,new=0[,autoraise=True]])
         webbrowser.open(url)
+
+    def _zscore_outliers(self, x, cutoff=3.0, return_thresholds=False):
+        dmean = x.mean()
+        dsd = x.std()
+        rng = dsd * cutoff
+        lower = dmean - rng
+        upper = dmean + rng
+        if return_thresholds:
+            return lower, upper
+        else:
+            return [True if z < lower or z > upper else False for z in x]
+
+
+    def _iqr_outliers(self, x, k=1.5, return_thresholds=False):
+        # calculate interquartile range
+        q25 = np.percentile(x, 25)
+        q75 = np.percentile(x, 75)
+        iqr = q75 - q25
+        # calculate the outlier cutoff
+        cut_off = iqr * k
+        lower, upper = q25 - cut_off, q75 + cut_off
+        if return_thresholds:
+            return lower, upper
+        else: # identify outliers
+            return [True if z < lower or z > upper else False for z in x]
+
+    def _dbscan_mvoutliers(self, X):
+        from sklearn.cluster import DBSCAN
+        from sklearn.preprocessing import StandardScaler
+        # scale data first
+        X = StandardScaler().fit_transform(X.values)
+        db = DBSCAN(eps=3.0, min_samples=10).fit(X)
+        labels = db.labels_
+        return(db)
+
+#    def getOutliers(self, data, var=None, type='both'):
+    def _Outliers(self, data, var=None, type='both'):
+        ### type=['univariate','multivariate','both']
+        out = []
+        ### check for normality
+        skew = stats.skew(data[var])
+        kurt = stats.kurtosis(data[var])
+        if(skew <= 0.01 and kurt <= 3):
+            stat = 1
+        else:
+            stat = 2
+        if(stat==1 and (type=='univariate' or type=='both')):
+            pnts = self._zscore_outliers(data[var])
+            out.append(pnts)
+        if(stat==2 and (type=='univariate' or type=='both')):
+            pnts = self._iqr_outliers(data[var])
+            out.append(pnts)
+        #if(type=='both' or type=='multivariate'):
+        #    cl = data.dtypes
+        #    nm = cl[cl=='int64' or cl=='float64' or cl=='int32' or cl=='float32']
+        #    pnts = self._dbscan_mvoutliers(data)
+        #    out.append(pnts)
+        return(out)
