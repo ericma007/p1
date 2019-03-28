@@ -86,3 +86,6 @@ notebooks/*.html
 # vim
 *.swp
 *.swo
+
+#added by mistake
+docs/Nokia_Suite_webinstaller_ALL.exe
